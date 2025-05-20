@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Job Listings</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f6f8;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            background-color: #fff;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px 15px;
+            text-align: left;
+            vertical-align: top; /* Better for cells with lots of text */
+        }
+        th {
+            background-color: #4CAF50; /* A nice green */
+            color: white;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .description-cell {
+            max-width: 400px; /* Limit width of description */
+            white-space: pre-wrap; /* Preserve newlines and wrap text */
+            word-wrap: break-word;
+        }
+        .loading, .error {
+            text-align: center;
+            font-size: 1.2em;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Job Listings</h1>
+    <div id="table-container">
+        <p class="loading">Loading job data...</p>
+    </div>
+
+    <script>
+        // Function to parse CSV text into an array of objects
+        // Handles basic CSV with quoted fields (double quotes)
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            if (lines.length === 0) return [];
+
+            const headers = lines[0].split(',').map(header => header.trim());
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = [];
+                let currentLine = lines[i];
+                let inQuotes = false;
+                let currentValue = "";
+
+                for (let charIndex = 0; charIndex < currentLine.length; charIndex++) {
+                    const char = currentLine[charIndex];
+
+                    if (char === '"') {
+                        if (inQuotes && charIndex + 1 < currentLine.length && currentLine[charIndex+1] === '"') {
+                            // Escaped double quote
+                            currentValue += '"';
+                            charIndex++; // Skip next quote
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        values.push(currentValue.trim());
+                        currentValue = "";
+                    } else {
+                        currentValue += char;
+                    }
+                }
+                values.push(currentValue.trim()); // Add the last value
+
+                if (values.length === headers.length) {
+                    const entry = {};
+                    headers.forEach((header, index) => {
+                        entry[header] = values[index];
+                    });
+                    data.push(entry);
+                } else {
+                    console.warn(`Skipping malformed CSV line ${i+1}: expected ${headers.length} values, got ${values.length}`, lines[i]);
+                }
+            }
+            return data;
+        }
+
+        async function fetchAndDisplayJobs() {
+            const csvFilePath = 'linkedin_jobs.csv'; // Assuming CSV is in the same directory
+            const tableContainer = document.getElementById('table-container');
+
+            try {
+                const response = await fetch(csvFilePath);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status} - Could not load ${csvFilePath}`);
+                }
+                const csvText = await response.text();
+                const jobsData = parseCSV(csvText);
+
+                if (jobsData.length === 0) {
+                    tableContainer.innerHTML = '<p class="error">No job data found in CSV or CSV is empty.</p>';
+                    return;
+                }
+
+                // Create table
+                const table = document.createElement('table');
+                const thead = document.createElement('thead');
+                const tbody = document.createElement('tbody');
+
+                // Create table headers
+                const headerRow = document.createElement('tr');
+                const headers = Object.keys(jobsData[0]); // Assumes all objects have same keys as first
+                headers.forEach(headerText => {
+                    const th = document.createElement('th');
+                    th.textContent = headerText;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                // Create table rows
+                jobsData.forEach(job => {
+                    const row = document.createElement('tr');
+                    headers.forEach(header => {
+                        const td = document.createElement('td');
+                        if (header.toLowerCase() === 'url' && job[header]) {
+                            const link = document.createElement('a');
+                            link.href = job[header];
+                            link.textContent = "View Job"; // Or job[header] for full URL
+                            link.target = "_blank"; // Open in new tab
+                            td.appendChild(link);
+                        } else if (header.toLowerCase().includes('description')) {
+                             td.textContent = job[header] || '';
+                             td.classList.add('description-cell');
+                        }
+                        else {
+                            td.textContent = job[header] || ''; // Handle undefined/null
+                        }
+                        row.appendChild(td);
+                    });
+                    tbody.appendChild(row);
+                });
+                table.appendChild(tbody);
+
+                tableContainer.innerHTML = ''; // Clear loading message
+                tableContainer.appendChild(table);
+
+            } catch (error) {
+                console.error('Error fetching or displaying job data:', error);
+                tableContainer.innerHTML = `<p class="error">Error loading job data: ${error.message}. Check console for details.</p>`;
+            }
+        }
+
+        // Call the function when the page loads
+        document.addEventListener('DOMContentLoaded', fetchAndDisplayJobs);
+    </script>
+
+</body>
+</html>
