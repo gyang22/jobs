@@ -1,0 +1,48 @@
+name: Refresh LinkedIn Jobs Data Daily
+
+on:
+  schedule:
+    # Runs at 08:00 UTC every day (adjust as needed)
+    # Use crontab.guru to help build cron expressions
+    - cron: '0 8 * * *'
+  # You can keep workflow_dispatch if you also want the option to trigger it manually
+  workflow_dispatch:
+
+jobs:
+  scrape_and_commit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Give the workflow permission to write to the repository
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # Or your preferred Python version
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 pandas
+
+      - name: Run LinkedIn Scraper
+        # !!! IMPORTANT: Replace 'your_script_name.py' with the actual filename of your Python script !!!
+        run: python pull_data.py
+
+      - name: Commit and push if CSV changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add linkedin_jobs.csv # Or specific path if your script saves it elsewhere
+          
+          # Check if there are any changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to linkedin_jobs.csv, skipping commit."
+          else
+            git commit -m "Automated: Daily update of linkedin_jobs.csv"
+            git push
+            echo "linkedin_jobs.csv updated and pushed to repository."
+          fi
