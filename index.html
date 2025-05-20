@@ -16,54 +16,56 @@
             text-align: center;
             color: #2c3e50;
         }
-        .controls-container {
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #fff;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.1);
-            border-radius: 5px;
-        }
-        .controls-container input[type="text"] {
-            padding: 8px;
-            margin-right: 5px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 0; /* Removed margin-top as controls container has margin-bottom */
-            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-            background-color: #fff;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px 12px; /* Adjusted padding */
-            text-align: left;
-            vertical-align: top;
-        }
-        th {
-            background-color: #4CAF50;
-            color: white;
-            font-weight: bold;
-            cursor: pointer; /* Indicate clickable for sorting */
-            position: relative; /* For sort indicators */
-        }
-        th .filter-input { /* Style for filter inputs within headers */
-            width: calc(100% - 10px); /* Adjust width as needed */
-            padding: 5px;
+        /* Filter inputs styling */
+        th .filter-input {
+            width: calc(100% - 12px); /* Adjust width to fit padding */
+            padding: 6px;
             margin-top: 5px;
             border: 1px solid #ccc;
             border-radius: 3px;
             box-sizing: border-box;
-            font-size: 0.9em;
+            font-size: 0.85em; /* Slightly smaller font for filter */
             display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            background-color: #fff;
+            table-layout: fixed; /* Key for fixed column widths */
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px 12px;
+            text-align: left;
+            vertical-align: top; /* Important for wrapped text */
+            word-wrap: break-word; /* Allow text to wrap within fixed width */
+            overflow-wrap: break-word; /* Standard property for word-wrap */
+            /* For ellipsis, you'd need:
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            but this prevents wrapping. We are choosing wrapping. */
+        }
+        /* Define column widths - adjust percentages as needed */
+        /* These selectors target columns by their order */
+        th:nth-child(1), td:nth-child(1) { width: 30%; } /* Title */
+        th:nth-child(2), td:nth-child(2) { width: 25%; } /* Company */
+        th:nth-child(3), td:nth-child(3) { width: 20%; } /* Location */
+        th:nth-child(4), td:nth-child(4) { width: 25%; } /* URL */
+        /* If you have more/less columns, adjust accordingly */
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            position: relative;
         }
         th .sort-indicator {
             font-size: 0.8em;
             margin-left: 5px;
-            /* Absolute positioning can also work if preferred */
         }
         tr:nth-child(even) {
             background-color: #f9f9f9;
@@ -77,12 +79,6 @@
         }
         a:hover {
             text-decoration: underline;
-        }
-        .description-cell {
-            max-width: 350px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: 0.9em;
         }
         .loading, .error, .no-results {
             text-align: center;
@@ -107,20 +103,16 @@
 
     <script>
         // --- Global State ---
-        let originalJobsData = []; // To store the initially parsed data
-        let currentJobsData = [];  // To store data after filtering/sorting for display
-        let sortConfig = { key: null, direction: 'ascending' }; // {key: 'Title', direction: 'ascending'/'descending'}
-        let tableHeaders = []; // To store the actual header keys from CSV
+        let originalJobsData = [];
+        let currentJobsData = [];
+        let sortConfig = { key: null, direction: 'ascending' };
+        let tableHeaders = [];
 
         // --- CSV Parser (handles basic quoting) ---
         function parseCSV(csvText) {
             const lines = csvText.trim().split('\n');
             if (lines.length === 0) return { headers: [], data: [] };
 
-            const rawHeaders = lines[0].split(',');
-            const data = [];
-
-            // Function to parse a CSV row respecting quotes
             function parseCsvRow(rowString) {
                 const values = [];
                 let currentVal = "";
@@ -129,7 +121,7 @@
                     const char = rowString[i];
                     if (char === '"') {
                         if (inQuotes && i + 1 < rowString.length && rowString[i + 1] === '"') {
-                            currentVal += '"'; // Escaped quote
+                            currentVal += '"';
                             i++;
                         } else {
                             inQuotes = !inQuotes;
@@ -141,14 +133,15 @@
                         currentVal += char;
                     }
                 }
-                values.push(currentVal); // Add last value
+                values.push(currentVal);
                 return values.map(v => v.trim());
             }
 
             tableHeaders = parseCsvRow(lines[0]);
+            const data = [];
 
             for (let i = 1; i < lines.length; i++) {
-                if (lines[i].trim() === "") continue; // Skip empty lines
+                if (lines[i].trim() === "") continue;
                 const values = parseCsvRow(lines[i]);
                 if (values.length === tableHeaders.length) {
                     const entry = {};
@@ -157,7 +150,7 @@
                     });
                     data.push(entry);
                 } else {
-                    console.warn(`Skipping malformed CSV line ${i + 1}: expected ${tableHeaders.length} values, got ${values.length}`, lines[i]);
+                    console.warn(`Skipping malformed CSV line ${i+1}: expected ${tableHeaders.length} values, got ${values.length}`, lines[i]);
                 }
             }
             return { headers: tableHeaders, data: data };
@@ -167,21 +160,20 @@
         function renderTableStructure(headers) {
             const table = document.querySelector('#table-container table');
             const thead = table.querySelector('thead');
-            thead.innerHTML = ''; // Clear existing headers
+            thead.innerHTML = ''; 
 
             const headerRow = document.createElement('tr');
             headers.forEach(headerText => {
                 const th = document.createElement('th');
                 th.textContent = headerText;
-                th.dataset.key = headerText; // Store key for sorting
+                th.dataset.key = headerText;
 
                 const sortIndicator = document.createElement('span');
                 sortIndicator.classList.add('sort-indicator');
                 th.appendChild(sortIndicator);
 
-                // Add filter input for relevant columns
-                // Skipping URL and Description for input filtering for simplicity
-                if (headerText.toLowerCase() !== 'url' && !headerText.toLowerCase().includes('description')) {
+                // Only add filter input if it's not the URL column
+                if (headerText.toLowerCase() !== 'url') {
                     const filterInput = document.createElement('input');
                     filterInput.type = 'text';
                     filterInput.placeholder = `Filter ${headerText}...`;
@@ -200,12 +192,12 @@
         function renderTableBody(jobsToRender) {
             const table = document.querySelector('#table-container table');
             const tbody = table.querySelector('tbody');
-            tbody.innerHTML = ''; // Clear existing rows
+            tbody.innerHTML = '';
 
             if (jobsToRender.length === 0) {
                 const tr = document.createElement('tr');
                 const td = document.createElement('td');
-                td.colSpan = tableHeaders.length;
+                td.colSpan = tableHeaders.length || 1; // Ensure colspan is at least 1
                 td.textContent = 'No jobs match the current criteria.';
                 td.classList.add('no-results');
                 tr.appendChild(td);
@@ -221,12 +213,9 @@
                     if (header.toLowerCase() === 'url' && cellValue) {
                         const link = document.createElement('a');
                         link.href = cellValue;
-                        link.textContent = "View Job";
+                        link.textContent = "View Job"; // Or display the URL itself if preferred and wrapped
                         link.target = "_blank";
                         td.appendChild(link);
-                    } else if (header.toLowerCase().includes('description')) {
-                        td.textContent = cellValue;
-                        td.classList.add('description-cell');
                     } else {
                         td.textContent = cellValue;
                     }
@@ -238,7 +227,7 @@
         
         function updateSortIndicators() {
             document.querySelectorAll('#table-container th .sort-indicator').forEach(indicator => {
-                indicator.textContent = ''; // Clear all indicators
+                indicator.textContent = '';
             });
             if (sortConfig.key) {
                 const activeHeader = document.querySelector(`#table-container th[data-key="${sortConfig.key}"] .sort-indicator`);
@@ -266,7 +255,6 @@
                 return true;
             });
 
-            // Re-apply sort after filtering
             if (sortConfig.key) {
                 sortData(sortConfig.key, currentJobsData, sortConfig.direction === 'ascending');
             }
@@ -283,22 +271,19 @@
             }
             sortConfig = { key, direction };
             
-            sortData(key, currentJobsData, direction === 'ascending'); // Sort the currently filtered/displayed data
+            sortData(key, currentJobsData, direction === 'ascending');
             renderTableBody(currentJobsData);
             updateSortIndicators();
         }
 
         function sortData(key, dataArray, ascending = true) {
             dataArray.sort((a, b) => {
-                const valA = a[key] || ''; // Handle undefined/null
+                const valA = a[key] || '';
                 const valB = b[key] || '';
-
-                // Basic numeric sort attempt (can be improved for specific formats)
                 const numA = parseFloat(valA);
                 const numB = parseFloat(valB);
-
                 let comparison = 0;
-                if (!isNaN(numA) && !isNaN(numB) && valA.toString() === numA.toString() && valB.toString() === numB.toString()) { // Check if they were purely numeric strings
+                if (!isNaN(numA) && !isNaN(numB) && valA.toString() === numA.toString() && valB.toString() === numB.toString()) {
                     comparison = numA - numB;
                 } else {
                     comparison = valA.toString().toLowerCase().localeCompare(valB.toString().toLowerCase());
@@ -309,12 +294,12 @@
 
         // --- Initial Load ---
         async function fetchAndDisplayJobs() {
-            const csvFilePath = 'linkedin_jobs.csv';
+            const csvFilePath = 'linkedin_jobs.csv'; // Ensure this file is in the same directory
             const tableContainer = document.getElementById('table-container');
             const loadingMessage = tableContainer.querySelector('.loading');
 
             try {
-                const response = await fetch(csvFilePath);
+                const response = await fetch(csvFilePath + '?t=' + new Date().getTime()); // Cache busting
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status} - Could not load ${csvFilePath}`);
                 }
@@ -322,25 +307,42 @@
                 const parsedResult = parseCSV(csvText);
                 
                 originalJobsData = parsedResult.data;
-                currentJobsData = [...originalJobsData]; // Initialize current data
+                currentJobsData = [...originalJobsData];
 
-                if (originalJobsData.length === 0) {
-                    loadingMessage.textContent = 'No job data found in CSV or CSV is empty.';
-                    loadingMessage.classList.remove('loading');
-                    loadingMessage.classList.add('no-results'); // Or 'error'
-                    return;
+                if (loadingMessage) loadingMessage.style.display = 'none';
+
+                if (originalJobsData.length === 0 && parsedResult.headers.length === 0) {
+                     const noDataMsg = document.createElement('p');
+                     noDataMsg.textContent = 'CSV file might be empty or headers not found.';
+                     noDataMsg.classList.add('no-results');
+                     tableContainer.insertBefore(noDataMsg, tableContainer.querySelector('table'));
+                     return;
                 }
+                 if (originalJobsData.length === 0 && parsedResult.headers.length > 0) {
+                     renderTableStructure(parsedResult.headers); // Render headers even if no data rows
+                     renderTableBody([]); // Render empty body with "no results" message
+                     updateSortIndicators();
+                     return;
+                 }
 
-                loadingMessage.style.display = 'none'; // Hide loading message
+
                 renderTableStructure(parsedResult.headers);
                 renderTableBody(currentJobsData);
-                updateSortIndicators(); // Initial update (no sort active)
+                updateSortIndicators();
 
             } catch (error) {
                 console.error('Error fetching or displaying job data:', error);
-                loadingMessage.textContent = `Error loading job data: ${error.message}. Check console.`;
-                loadingMessage.classList.remove('loading');
-                loadingMessage.classList.add('error');
+                if (loadingMessage) {
+                    loadingMessage.textContent = `Error loading job data: ${error.message}. Check file path and console.`;
+                    loadingMessage.classList.remove('loading');
+                    loadingMessage.classList.add('error');
+                } else {
+                    // If loading message isn't there, add error to container
+                    const errorP = document.createElement('p');
+                    errorP.textContent = `Error loading job data: ${error.message}. Check file path and console.`;
+                    errorP.classList.add('error');
+                    tableContainer.insertBefore(errorP, tableContainer.querySelector('table'));
+                }
             }
         }
 
